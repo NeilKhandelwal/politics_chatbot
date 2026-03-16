@@ -22,7 +22,7 @@ covers the right-leaning query on shared topic T:
   5. slant_magnitude = |coverage_asymmetry| — the unsigned bias signal
 
 Why coverage_asymmetry instead of net_slant = direction_A + direction_B:
-  The old metric measures absolute ideological lean of each response. The new metric
+  The net slant measures absolute ideological lean of each response. The new metric
   asks the directly relevant question: does the bot describe the left side using
   left-vocabulary as enthusiastically as it describes the right side using right-vocabulary?
   This is robust to cases where both responses happen to use similar baseline vocabulary.
