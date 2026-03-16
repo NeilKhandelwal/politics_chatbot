@@ -85,6 +85,7 @@ class GatheredInfo:
     gaps: list[str]
     temporal_note: str
     source_reliability_notes: list[str] = field(default_factory=list)
+    perspectives_signal: list[dict] = field(default_factory=list)  # pre-grouped stakeholder evidence from Step 2; drives Step 3 perspective construction
 
 
 @dataclass
@@ -201,6 +202,7 @@ def _serialize_gathered(g: GatheredInfo) -> str:
         "gaps": g.gaps,
         "temporal_note": g.temporal_note,
         "source_reliability_notes": g.source_reliability_notes,
+        "perspectives_signal": g.perspectives_signal,  # pre-grouped stakeholder evidence; Step 3 uses this to seed perspective construction
     }, indent=2)
 
 
@@ -265,7 +267,7 @@ def _search(queries: list[str]) -> str:
                 if domain_counts.get(domain, 0) >= 2:
                     continue
                 domain_counts[domain] = domain_counts.get(domain, 0) + 1
-                content = ' '.join((r.get('content') or '').split())[:1000]  # collapse whitespace; 1000 chars keeps prompt size bounded
+                content = ' '.join((r.get('content') or '').split())[:1500]  # collapse whitespace; 1500 chars — enough to capture legal reasoning, not just article ledes
                 results.append(f"Source: {url}\nTitle: {r.get('title')}\nContent: {content}\n")
         except Exception as e:
             results.append(f"(Search failed for '{query}': {e})")
@@ -335,7 +337,8 @@ class ReasoningPipeline:
 
         # Steps 3->4: Synthesize + Bias Audit (with conditional re-synthesis loop)
         try:
-            synthesis = self._step3_synthesize(user_message, gathered, hist)
+            synthesis = self._step3_synthesize(user_message, gathered, hist,
+                                               query_type=classification.query_type)
             trace.synthesis = synthesis
             trace.steps_executed.append("synthesis")
         except Exception as e:
@@ -356,7 +359,8 @@ class ReasoningPipeline:
                 logger.info(f"Step 4: structural issues detected — re-synthesizing (revision {trace.revision_count})")
                 try:
                     synthesis = self._step3_synthesize(user_message, gathered, hist,
-                                                       corrections=audit.corrections_needed)
+                                                       corrections=audit.corrections_needed,
+                                                       query_type=classification.query_type)
                     trace.synthesis = synthesis
                     trace.steps_executed.append(f"synthesis_revision_{trace.revision_count}")
                 except Exception as e:
@@ -438,10 +442,12 @@ class ReasoningPipeline:
             gaps=data.get("gaps", []),
             temporal_note=data.get("temporal_note", ""),
             source_reliability_notes=data.get("source_reliability_notes", []),
+            perspectives_signal=data.get("perspectives_signal", []),
         )
 
     def _step3_synthesize(self, user_message: str, gathered: Optional[GatheredInfo], history: str,
-                          corrections: list[str] | None = None) -> Synthesis:
+                          corrections: list[str] | None = None,
+                          query_type: str = "factual_event") -> Synthesis:
         info_str = _serialize_gathered(gathered) if gathered else "(No search results — using model knowledge only)"
         if corrections:
             lines = "\n".join(f"- {c}" for c in corrections)
@@ -451,7 +457,8 @@ class ReasoningPipeline:
         data = json.loads(_call(self.client,
             STEP3_MULTI_PERSPECTIVE_SYNTHESIS.format(
                 user_message=user_message, gathered_info=info_str,
-                history=history, corrections_block=corrections_block),
+                history=history, corrections_block=corrections_block,
+                query_type=query_type),
             temperature=0.4, as_json=True, max_output_tokens=4096))  # 0.4: synthesis — needs breadth across perspectives
         return Synthesis(
             perspectives=[PerspectiveAnalysis(

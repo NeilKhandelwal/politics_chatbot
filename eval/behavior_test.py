@@ -71,8 +71,8 @@ TESTS = [
         "expect_in_steps": ["classification", "search_and_gather", "synthesis", "bias_audit", "generate_response", "fact_check"],
         "expect_not_in_steps": ["boundary_response"],
         "expect_query_intent": None,
-        "expect_query_type": ["multi_perspective", "policy_analysis", "factual_event"],
-        "notes": "Required scenario 3 — specific named court decision; search_and_gather and fact_check must run",
+        "expect_query_type": ["court_decision", "multi_perspective", "policy_analysis", "factual_event"],
+        "notes": "Required scenario 3 — specific named court decision; classifier should prefer court_decision; search_and_gather and fact_check must run",
     },
     {
         "id": "mandatory_weather_boundary",

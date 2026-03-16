@@ -56,7 +56,7 @@ Given the conversation history and the latest user message, produce a JSON analy
   "political_dimensions": ["list of political aspects if partially political, empty if not"],
   "needs_search": true/false,
   "search_queries": ["list of search queries if search is needed, empty otherwise"],
-  "query_type": "one of: factual_event, policy_analysis, multi_perspective, opinion_request, boundary_case, off_topic",
+  "query_type": "one of: factual_event, policy_analysis, multi_perspective, court_decision, historical_event, opinion_request, boundary_case, off_topic",
   "query_intent": "one of: causal, descriptive, predictive, factual",
   "needs_bias_audit": true/false
 }}
@@ -77,6 +77,13 @@ reports. Classify such questions as off_topic and redirect, suggesting the user 
 CRITICAL: Requests for general assistance that are not explicitly querying for political information are NOT in scope \
 Unless the user has embedded a specific political question in the request. \
 Classify these as is_political=false. Do NOT infer a question from the conversation history.
+
+Use `court_decision` for any question about a named court ruling, judicial opinion, or \
+legal case — even if it asks about political reactions to the ruling. Use `historical_event` \
+for questions about specific past administrations, eras, or named political episodes where \
+the primary analytical frame is retrospective (what happened, what caused it, how it is \
+assessed). Do not classify these as `factual_event` — they require distinct perspective \
+structures in synthesis.
 
 Set `needs_bias_audit: false` when the question asks only for factual records where a correct \
 answer contains no competing political interpretations. This includes: specific vote counts, \
@@ -129,6 +136,16 @@ Additional rules:
 - For queries targeting polling or public opinion, include a source indicator such as polling,
   survey, approval rating, or a named pollster to pull actual data rather than commentary.
 
+For `court_decision` queries, the three slots must cover:
+  slot 1 — the majority opinion: [case name] majority opinion [constitutional/statutory] reasoning [year]
+  slot 2 — the dissent: [case name] dissenting opinion [justice name(s)] objections [year]
+  slot 3 — affected parties: [case name] impact [named institution, group, or individuals subject to ruling] [year]
+
+For `historical_event` queries, the three slots must cover:
+  slot 1 — the primary record: [named administration or actor] [decision/policy] [year range]
+  slot 2 — contemporary opposition: [opposing party or critics] response to [named administration] [year range]
+  slot 3 — retrospective assessment: [named episode] historical assessment [outcomes OR analysis] [year]
+
 Conversation history:
 {history}
 
@@ -147,13 +164,21 @@ Conversation context (for disambiguation):
 Search results:
 {search_results}
 
-Your task: Extract and organize the relevant factual information from these results.
+Your task: Extract and organize the relevant factual information from these results in two passes.
 
-For each piece of information, reason about:
+PASS 1 — Identify stakeholders: Before extracting facts, identify the distinct stakeholders \
+represented across the sources. A stakeholder is any actor, institution, group, or analytical \
+position that holds a distinct view on the question — not just political parties, but also: \
+courts and individual justices, legislative bodies, affected communities, civil society \
+organizations, independent analysts, and international actors. For each stakeholder, identify \
+their position and which sources speak for or about them.
+
+PASS 2 — Extract and organize: For each piece of information, reason about:
 - The factual claim and the source it comes from
-- The source's likely editorial perspective — consider the domain name and how the \
-content is framed. What is the outlet's likely stance? How should that inform your \
-confidence in this particular claim?
+- The source's likely editorial perspective — consider the domain name and how the content \
+is framed. What is the outlet's likely stance? How should that inform your confidence in \
+this particular claim?
+- Which stakeholder's position this fact supports or describes
 - Your overall assessment of reliability (well-established / likely accurate / uncertain / contested)
 
 IMPORTANT: If sources contradict each other on a factual claim, note the contradiction \
@@ -164,6 +189,7 @@ Output constraints (critical for valid JSON):
 - contested_claims: at most 4 items
 - gaps: at most 4 items
 - source_reliability_notes: at most 4 items, only for sources carrying contested or high-stakes claims
+- perspectives_signal: at most 5 stakeholders; only include stakeholders with at least one supporting fact from the search results
 - All string values must be plain ASCII — avoid em-dashes, curly quotes, or other non-ASCII characters
 
 Produce a JSON object:
@@ -172,7 +198,14 @@ Produce a JSON object:
   "contested_claims": ["at most 4 claims where sources disagree — note who says what and cite source domains"],
   "gaps": ["at most 4 important aspects the search results don't address"],
   "temporal_note": "any notes about how current this information is",
-  "source_reliability_notes": ["at most 4 brief assessments of editorial stance for sources carrying contested claims — e.g., '[foxnews.com] Conservative outlet'"]
+  "source_reliability_notes": ["at most 4 brief assessments of editorial stance for sources carrying contested claims — e.g., '[foxnews.com] Conservative outlet'"],
+  "perspectives_signal": [
+    {{
+      "stakeholder": "named actor, institution, or analytical position (e.g. 'SCOTUS majority', 'Senate Democrats', 'affected universities', 'civil rights groups')",
+      "position_summary": "one sentence stating their position or stance on the question",
+      "supporting_facts": ["fact strings from verified_facts that support or describe this stakeholder's position — copy exactly"]
+    }}
+  ]
 }}
 
 """ + _JSON_ONLY
@@ -188,6 +221,8 @@ on model knowledge rather than search results, note this in `uncertainty_notes`.
 
 User question: {user_message}
 
+Query type: {query_type}
+
 Factual grounding (from search):
 {gathered_info}
 
@@ -199,9 +234,34 @@ rely primarily on a single partisan outlet in uncertainty_notes.
 
 Produce a comprehensive multi-perspective analysis following these steps:
 
-1. **Identify the key perspectives**: Who are the major actors/stakeholders? What are \
-the distinct analytical lenses (partisan, institutional, affected populations, historical)? \
-CRITICAL: The set of analytical lenses you apply must be symmetric. If you include a \
+1. **Identify the key perspectives** using the query type as your starting frame. \
+Do not default to a generic partisan left/right split when the query type calls for a \
+different primary frame:
+
+  court_decision:    (1) majority legal reasoning — the constitutional or statutory \
+argument the court majority relied on; (2) dissenting reasoning — the specific legal \
+objections raised by the minority; (3) affected parties — how the ruling changes \
+obligations or rights for named institutions, groups, or individuals subject to it.
+
+  historical_event:  (1) the administration or actor in power — their stated rationale \
+and decisions; (2) contemporary opposition — how critics or the opposing party responded \
+at the time; (3) retrospective assessment — how historians, analysts, or subsequent \
+events have evaluated the episode.
+
+  policy_analysis / multi_perspective:  identify all named stakeholders; include \
+proponent position, opponent position, and affected constituency as distinct perspectives. \
+Minimum 3 perspectives.
+
+  factual_event:  primary actor's account / opposing actor's account / independent \
+or nonpartisan assessment.
+
+  opinion_request:  note that this requires personal judgment; present factual grounding \
+and named positions only — do not advocate.
+
+  boundary_case:  apply the closest matching frame above.
+
+You may add perspectives beyond the starting frame if the evidence warrants. CRITICAL: \
+The set of analytical lenses you apply must be symmetric. If you include a \
 critical/adversarial lens for one subject (e.g., "progressive critique of Republican policy"), \
 you MUST include an equivalent critical/adversarial lens for the other subject \
 (e.g., "conservative critique of Democratic policy"). Do not apply skeptical or \
