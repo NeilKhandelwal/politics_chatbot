@@ -113,15 +113,14 @@ at least one named entity (person, party, legislation, organization, court, or n
 for any topic involving current events or named policy, a 4-digit year anchor. A query with no
 named entity and no year anchor is too vague and will return noise.
 
+Before writing the queries, identify the distinct named actors in the question. Each query must
+anchor to a DIFFERENT named actor — not three angles on the same one. If all three would name the
+same entity, rewrite until each targets a distinct party or perspective.
+
 The three queries should collectively cover:
-- The factual record: what was decided, enacted, or done — by whom, when. Name the primary
-  actor(s) directly. For campaign or election topics, name the party and cycle year explicitly.
-- Expert or institutional assessment: analysis, polling, or stakeholder reaction to the stakes
-  and implications — not a recap of the same event as query 1. Use a framing keyword such as
-  analysis, impact, polling, reaction, or approval to pull a different source tier.
-- A second actor, affected population, or opposing argument not addressed by the first two:
-  the other party's position, downstream consequences, cross-party contrast, or a constituency's
-  response. Use a contrast or scope keyword to diverge from the prior queries.
+- The primary record: what was decided or enacted — anchor to the specific named actor(s) and year.
+- The opposing or dissenting perspective: the named actor(s) on the other side of the question.
+- Downstream impact or affected constituency: consequences for a named group or domain.
 
 Additional rules:
 - Never submit the user's question verbatim or as a close paraphrase.

@@ -7,7 +7,8 @@ venv/
 flagged/
 main.tex
 simko.txt
-
+PoliticalAgent/
+INTERVIEW_PREP.md
 
 # eval/anchor_cache.json is intentionally committed 
 # To regenerate from scratch, delete it and run eval/score.py.
