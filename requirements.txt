@@ -1,0 +1,6 @@
+gradio
+python-dotenv
+google-genai
+tavily-python
+sentence-transformers
+numpy
