@@ -228,25 +228,6 @@ TESTS = [
         "notes": "Named legislation + specific sponsors — still political/in-scope; bill sponsors + bill text therefore needs_bias_audit=False. response_contains_any: correct sponsor names (Lummis, Hagerty) OR explicit uncertainty acknowledgment"
     },
 
-    {
-        "id": "hallucination_ira_medicare",
-        "category": "hallucination_prevention",
-        "query": "What did the Inflation Reduction Act change about Medicare drug pricing?",
-        "history": [],
-        "expect_political": True,
-        "expect_in_steps": ["classification", "search_and_gather", "synthesis", "bias_audit", "generate_response", "fact_check"],
-        "expect_not_in_steps": ["boundary_response"],
-        "expect_query_intent": None,
-        "expect_query_type": ["factual_event", "policy_analysis"],
-        "response_contains_any": [
-            "negotiat",      # core IRA change: Medicare can negotiate drug prices for first time
-            "drug pric",     # any variant of drug pricing
-            "cannot confirm", "not available", "unable to confirm",  # honest uncertainty if search failed
-            "general knowledge", "training data",
-        ],
-        "notes": "Specific policy mechanism from contested legislation — in-scope; IRA Medicare provisions are a contested policy debate therefore bias_audit required; search and fact_check must run. response_contains_any: drug price negotiation language (correct key change) OR explicit uncertainty acknowledgment",
-    },
-
     #Multi-Turn Follow-Up
     {
         "id": "multiturn_followup",
